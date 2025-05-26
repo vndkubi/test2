@@ -51,7 +51,6 @@ jobs:
 
       - name: Create Pull Request (even if no diff)
         run: |
-          gh auth login --with-token <<< "${{ secrets.PERSONAL_ACCESS_TOKEN }}"
           gh pr create \
             --title "🔄 Sync from ctson97/test1" \
             --body "Tự động đồng bộ từ upstream repository [ctson97/test1](https://github.com/ctson97/test1)." \
