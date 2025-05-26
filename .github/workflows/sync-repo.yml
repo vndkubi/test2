@@ -35,7 +35,10 @@ jobs:
           git checkout -b sync-upstream-$(date +%s) upstream/main
 
       - name: Push new branch to origin
-        run: git push origin HEAD
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
+          git push origin HEAD
+
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
