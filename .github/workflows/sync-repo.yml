@@ -1,4 +1,3 @@
-# 📄 .github/workflows/sync-upstream.yml
 name: Sync from upstream (always create PR)
 
 on:
@@ -32,24 +31,22 @@ jobs:
         run: |
           git fetch upstream
           BRANCH=sync-upstream-$(date +%s)
-          git checkout -b $BRANCH upstream/main
-
-          # Thêm commit giả để luôn tạo PR
+          git checkout -b $BRANCH
+          
+          # Merge từ upstream/main vào nhánh mới
+          git merge upstream/main
+          
+          # Tạo commit giả ngay cả khi không có thay đổi
           echo "Synced at $(date)" > SYNC_TIMESTAMP
           git add SYNC_TIMESTAMP
-          git commit -m "chore: update SYNC_TIMESTAMP to force PR"
-
+          git commit -m "chore: update SYNC_TIMESTAMP to force PR" --allow-empty
+          
           # Push branch mới dùng PAT
           git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
           git push origin $BRANCH
           echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
 
-      - name: Install GitHub CLI (gh)
-        run: |
-          sudo apt update
-          sudo apt install -y gh
-
-      - name: Create Pull Request (even if no diff)
+      - name: Create Pull Request
         run: |
           gh pr create \
             --title "🔄 Sync from ctson97/test1" \
