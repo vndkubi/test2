@@ -106,13 +106,12 @@ jobs:
         if: steps.sync_branch.outputs.branch_name != ''
         run: |
           # Get the default branch name again for the base parameter
-          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f3)
-          echo "Creating PR from ${{ steps.sync_branch.outputs.branch_name }} to $DEFAULT_BRANCH"
+          echo "Creating PR from ${{ steps.sync_branch.outputs.branch_name }} to main"
           gh pr create \
             --title "🔄 Sync from ctson97/test1" \
             --body "Tự động đồng bộ từ upstream repository [ctson97/test1](https://github.com/ctson97/test1)." \
             --head "${{ steps.sync_branch.outputs.branch_name }}" \
-            --base "$DEFAULT_BRANCH"
+            --base main
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
