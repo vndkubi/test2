@@ -14,10 +14,13 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout fork repo (repository2)
+      - name: Checkout fork repo
         uses: actions/checkout@v4
         with:
+          # Fetch all history for all branches and tags
           fetch-depth: 0
+          # Use a PAT here if your repo is private and the default GITHUB_TOKEN lacks permissions
+          # token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - name: Set up Git
         run: |
@@ -27,31 +30,89 @@ jobs:
       - name: Add upstream remote
         run: git remote add upstream https://github.com/ctson97/test1.git
 
-      - name: Fetch upstream and create sync branch
+      - name: Sync fork and Create PR Branch
+        id: sync_branch
         run: |
           git fetch upstream
+          # Get the default branch name dynamically (e.g., main, master)
+          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f3)
+          echo "Default branch: $DEFAULT_BRANCH"
+          
+          # Ensure local default branch is up-to-date
+          git checkout $DEFAULT_BRANCH
+          # Use PAT for pulling if needed for private repo
+          # git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
+          git pull origin $DEFAULT_BRANCH
+          
+          # Create a unique sync branch name
           BRANCH=sync-upstream-$(date +%s)
           git checkout -b $BRANCH
+          echo "Created sync branch: $BRANCH"
           
-          # Merge từ upstream/main vào nhánh mới
-          git merge upstream/main
+          # Attempt to merge upstream changes without auto-committing or fast-forwarding
+          echo "Attempting merge from upstream/$DEFAULT_BRANCH..."
+          git merge --no-ff --no-commit "upstream/$DEFAULT_BRANCH"
+          MERGE_EXIT_CODE=$?
           
-          # Tạo commit giả ngay cả khi không có thay đổi
-          echo "Synced at $(date)" > SYNC_TIMESTAMP
-          git add SYNC_TIMESTAMP
-          git commit -m "chore: update SYNC_TIMESTAMP to force PR" --allow-empty
+          # Check if merge resulted in changes or conflicts
+          if [ $MERGE_EXIT_CODE -eq 0 ] && ! git diff --cached --quiet; then
+            # Merge successful and introduced changes
+            echo "Changes detected from upstream. Committing merge."
+            git commit -m "feat: Sync changes from upstream ctson97/test1"
+            COMMIT_MADE="true"
+          elif [ $MERGE_EXIT_CODE -ne 0 ]; then
+            # Merge failed (likely conflicts)
+            echo "Merge conflict detected. Aborting automatic merge commit."
+            # You might want to handle conflicts differently, e.g., create PR anyway
+            # For now, we'll still force a commit to ensure PR creation
+            echo "Proceeding to force commit for PR creation despite conflict."
+            echo "Conflict sync at $(date +%Y-%m-%dT%H:%M:%SZ)" > SYNC_TIMESTAMP
+            git add SYNC_TIMESTAMP || true # Add timestamp, ignore if add fails due to conflict state
+            git commit -m "chore: Force update SYNC_TIMESTAMP (merge conflict)" --allow-empty
+            COMMIT_MADE="true"
+          else
+            # Merge successful but no changes introduced
+            echo "No new changes from upstream. Creating timestamp commit to force PR."
+            echo "Synced at $(date +%Y-%m-%dT%H:%M:%SZ)" > SYNC_TIMESTAMP
+            git add SYNC_TIMESTAMP
+            git commit -m "chore: Force update SYNC_TIMESTAMP"
+            COMMIT_MADE="true"
+          fi
           
-          # Push branch mới dùng PAT
-          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
-          git push origin $BRANCH
-          echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
+          # Only push if a commit was made (either merge or timestamp)
+          if [ "$COMMIT_MADE" == "true" ]; then
+            echo "Pushing branch $BRANCH to origin..."
+            # Set remote URL with PAT for push
+            git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
+            git push origin $BRANCH
+            PUSH_EXIT_CODE=$?
+            if [ $PUSH_EXIT_CODE -ne 0 ]; then
+              echo "::error::Failed to push branch $BRANCH to origin. Exit code: $PUSH_EXIT_CODE"
+              exit 1
+            fi
+            echo "Branch $BRANCH pushed successfully."
+            # Set output for the next step
+            echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
+            # Add a small delay to allow GitHub API to recognize the new branch
+            sleep 5
+          else
+            echo "No commit was made. Skipping push and PR creation."
+            # Set empty branch name if no push happened
+            echo "branch_name=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Pull Request
+        # Only run if a branch was actually pushed
+        if: steps.sync_branch.outputs.branch_name != ''
         run: |
+          # Get the default branch name again for the base parameter
+          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f3)
+          echo "Creating PR from ${{ steps.sync_branch.outputs.branch_name }} to $DEFAULT_BRANCH"
           gh pr create \
             --title "🔄 Sync from ctson97/test1" \
             --body "Tự động đồng bộ từ upstream repository [ctson97/test1](https://github.com/ctson97/test1)." \
-            --head ${{ env.BRANCH_NAME }} \
-            --base main
+            --head "${{ steps.sync_branch.outputs.branch_name }}" \
+            --base "$DEFAULT_BRANCH"
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
