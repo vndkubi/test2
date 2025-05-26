@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Add sample commment
 # ===== STEP 0: Script information and version =====
 SCRIPT_VERSION="1.1.3"
 
