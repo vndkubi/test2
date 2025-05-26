@@ -43,12 +43,14 @@ jobs:
           git push origin sync-upstream --force
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          branch: sync-upstream
-          title: "🔁 Sync from upstream test1"
-          body: |
-            This PR merges changes from [ctson97/test1](https://github.com/ctson97/test1) into this fork.
-            It was created automatically by GitHub Actions.
-          base: main
+          uses: peter-evans/create-pull-request@v5
+          with:
+            token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+            branch: sync-upstream
+            title: "🔁 Sync from upstream test1"
+            body: |
+              This PR merges changes from [ctson97/test1](https://github.com/ctson97/test1) into this fork.
+              It was created automatically by GitHub Actions.
+            base: main
+          working-directory: fork
+
