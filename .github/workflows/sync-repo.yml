@@ -32,7 +32,7 @@ jobs:
           git fetch upstream
           BRANCH=sync-upstream-$(date +%s)
           git checkout -b $BRANCH upstream/main
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
           git push origin $BRANCH
           echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
 
@@ -50,4 +50,4 @@ jobs:
             --head ${{ env.BRANCH_NAME }} \
             --base main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
