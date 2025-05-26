@@ -1,30 +1,54 @@
-name: 🔄 Sync from upstream
+name: 🔄 Sync upstream via PR
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/3 * * * *'  # Chạy mỗi 30 phút (hoặc chỉnh lại)
+    - cron: '*/30 * * * *'  # Chạy mỗi 30 phút (hoặc tùy chỉnh)
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout fork repo
+      - name: Checkout fork (main branch)
         uses: actions/checkout@v3
+        with:
+          ref: main
+          path: fork
 
-      - name: Add upstream remote
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        working-directory: fork
         run: |
           git remote add upstream https://github.com/ctson97/test1.git
           git fetch upstream
 
-      - name: Merge upstream changes
+      - name: Create sync branch from main
+        working-directory: fork
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout main
-          git merge upstream/main --allow-unrelated-histories || echo "No changes to merge"
+          git checkout -b sync-upstream
 
-      - name: Push to fork
+      - name: Merge upstream/main into sync-upstream
+        working-directory: fork
         run: |
-          git push origin main
+          git merge upstream/main || echo "Merge conflicts exist – continue to PR"
+
+      - name: Push sync-upstream branch
+        working-directory: fork
+        run: |
+          git push origin sync-upstream --force
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          branch: sync-upstream
+          title: "🔁 Sync from upstream test1"
+          body: |
+            This PR merges changes from [ctson97/test1](https://github.com/ctson97/test1) into this fork.
+            It was created automatically by GitHub Actions.
+          base: main
