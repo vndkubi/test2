@@ -1,0 +1,30 @@
+name: 🔄 Sync from upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/3 * * * *'  # Chạy mỗi 30 phút (hoặc chỉnh lại)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork repo
+        uses: actions/checkout@v3
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/ctson97/test1.git
+          git fetch upstream
+
+      - name: Merge upstream changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git merge upstream/main --allow-unrelated-histories || echo "No changes to merge"
+
+      - name: Push to fork
+        run: |
+          git push origin main
