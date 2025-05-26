@@ -34,10 +34,6 @@ jobs:
           BRANCH=sync-upstream-$(date +%s)
           git checkout -b $BRANCH || { echo "Failed to create branch"; exit 1; }
           git merge upstream/main || { echo "Merge failed"; exit 1; }
-          echo "Synced at $(date)" > SYNC_TIMESTAMP || { echo "Failed to write SYNC_TIMESTAMP"; exit 1; }
-          git add SYNC_TIMESTAMP || { echo "Failed to add SYNC_TIMESTAMP"; exit 1; }
-          git commit -m "chore: update SYNC_TIMESTAMP to force PR" || { echo "Commit failed"; exit 1; }
-          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
           git push origin $BRANCH || { echo "Push failed"; exit 1; }
           echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
 
