@@ -1,9 +1,9 @@
 # 📄 .github/workflows/sync-upstream.yml
-name: Sync with upstream and always create PR
+name: Sync from upstream (always create PR)
 
 on:
   schedule:
-    - cron: '0 * * * *' # ⏰ Mỗi giờ
+    - cron: '0 * * * *'  # ⏰ Chạy mỗi giờ
   workflow_dispatch:
 
 jobs:
@@ -14,10 +14,12 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout forked repo
+      - name: Checkout fork repo (repository2)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Git config
+      - name: Set up Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -25,23 +27,27 @@ jobs:
       - name: Add upstream remote
         run: git remote add upstream https://github.com/ctson97/test1.git
 
-      - name: Fetch and create sync branch
+      - name: Fetch upstream and create sync branch
         run: |
           git fetch upstream
           BRANCH=sync-upstream-$(date +%s)
           git checkout -b $BRANCH upstream/main
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git push origin $BRANCH
           echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
 
-      - name: Install GitHub CLI
-        uses: cli/cli-action@v2
-
-      - name: Create PR even if no diff
+      - name: Install GitHub CLI (gh)
         run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Create PR even if no changes
+        run: |
+          gh auth setup-git
           gh pr create \
-            --title "🔄 Sync upstream even with no changes" \
-            --body "Đồng bộ hóa với repo gốc (có thể không có thay đổi)." \
+            --title "🔄 Sync from ctson97/test1" \
+            --body "Tự động đồng bộ từ upstream repository [ctson97/test1](https://github.com/ctson97/test1)." \
             --head ${{ env.BRANCH_NAME }} \
             --base main
         env:
-          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
