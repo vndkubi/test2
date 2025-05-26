@@ -3,20 +3,20 @@ name: 🔄 Sync upstream via PR
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *'  # Chạy mỗi 30 phút (hoặc tùy chỉnh)
+    - cron: '*/30 * * * *'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout fork (main branch)
+      - name: Checkout fork repo (main)
         uses: actions/checkout@v3
         with:
           ref: main
           path: fork
 
-      - name: Set up Git
+      - name: Set up Git config
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -27,30 +27,29 @@ jobs:
           git remote add upstream https://github.com/ctson97/test1.git
           git fetch upstream
 
-      - name: Create sync branch from main
+      - name: Create sync branch and merge
         working-directory: fork
         run: |
-          git checkout -b sync-upstream
+          git checkout -B sync-upstream
+          git merge upstream/main || echo "Merge conflict – PR will be created anyway"
 
-      - name: Merge upstream/main into sync-upstream
+      - name: Push sync branch
         working-directory: fork
+        env:
+          TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
-          git merge upstream/main || echo "Merge conflicts exist – continue to PR"
-
-      - name: Push sync-upstream branch
-        working-directory: fork
-        run: |
+          git remote set-url origin https://x-access-token:${TOKEN}@github.com/vndkubi/test2.git
           git push origin sync-upstream --force
 
-      - name: Create Pull Request
-          uses: peter-evans/create-pull-request@v5
-          with:
-            token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-            branch: sync-upstream
-            title: "🔁 Sync from upstream test1"
-            body: |
-              This PR merges changes from [ctson97/test1](https://github.com/ctson97/test1) into this fork.
-              It was created automatically by GitHub Actions.
-            base: main
-          working-directory: fork
+      - name: Install GitHub CLI
+        run: sudo apt install -y gh
 
+      - name: Create PR with GitHub CLI
+        working-directory: fork
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          gh pr list --state open --head sync-upstream | grep -q "." && echo "PR already exists" || \
+          gh pr create \
+            --title "🔁 Sync from upstream" \
+            --body "This PR merges latest changes from [ctson97/test1](https://github.com/ctson97/test1) into your fork." \
