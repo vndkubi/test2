@@ -31,7 +31,7 @@ jobs:
         working-directory: fork
         run: |
           git checkout -B sync-upstream
-          git merge upstream/main || echo "Merge conflict – PR will be created anyway"
+          git merge upstream/main --allow-unrelated-histories || echo "⚠️ Merge conflict – PR will be created anyway"
 
       - name: Push sync branch
         working-directory: fork
@@ -44,12 +44,14 @@ jobs:
       - name: Install GitHub CLI
         run: sudo apt install -y gh
 
-      - name: Create PR with GitHub CLI
+      - name: Create Pull Request with GitHub CLI
         working-directory: fork
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
-          gh pr list --state open --head sync-upstream | grep -q "." && echo "PR already exists" || \
+          gh pr list --state open --head sync-upstream | grep -q "." && echo "✅ PR already exists" || \
           gh pr create \
             --title "🔁 Sync from upstream" \
-            --body "This PR merges latest changes from [ctson97/test1](https://github.com/ctson97/test1) into your fork." \
+            --body "Auto-created PR to merge updates from [ctson97/test1](https://github.com/ctson97/test1) into this fork." \
+            --head sync-upstream \
+            --base main
