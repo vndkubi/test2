@@ -1,52 +1,70 @@
-name: Sync from upstream (always create PR)
+# 📄 .github/workflows/sync-upstream.yml
+name: 🔄 Sync from upstream and create PR
 
 on:
   schedule:
-    - cron: '0 * * * *'  # ⏰ Chạy mỗi giờ
-  workflow_dispatch:      # 🧪 Cho phép chạy thủ công
+    - cron: '0 * * * *' # ⏰ Chạy mỗi giờ
+  workflow_dispatch:     # 🧪 Cho phép chạy thủ công
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write           # Cho phép ghi nội dung vào repo
+      pull-requests: write      # Cho phép tạo Pull Request
 
     steps:
-      - name: Checkout fork repo (repository2)
+      - name: 🧾 Checkout current repository (fork)
         uses: actions/checkout@v4
         with:
-          ref: main  # Đảm bảo checkout từ nhánh main
-          fetch-depth: 0
+          ref: main             # Đảm bảo checkout từ nhánh main
+          fetch-depth: 0        # Cần full history để merge
 
-      - name: Set up Git
+      - name: ⚙️ Setup Git user
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream remote
+      - name: 🔗 Add upstream remote
         run: git remote add upstream https://github.com/ctson97/test1.git
 
-      - name: Fetch upstream and create sync branch
+      - name: 📥 Fetch upstream & merge into new sync branch
+        id: sync
         run: |
-          git fetch upstream || { echo "Failed to fetch upstream"; exit 1; }
-          BRANCH=sync-upstream-$(date +%s)
-          git checkout -b $BRANCH || { echo "Failed to create branch"; exit 1; }
-          git merge upstream/main || { echo "Merge failed"; exit 1; }
-          git push origin $BRANCH || { echo "Push failed"; exit 1; }
+          git fetch upstream || { echo "❌ Failed to fetch upstream"; exit 1; }
+
+          BRANCH="sync-upstream-$(date +%s)"
+          git checkout -b "$BRANCH" || { echo "❌ Failed to create branch"; exit 1; }
+
+          git merge upstream/main || { echo "❌ Merge failed"; exit 1; }
+
+          echo "Synced at $(date '+%Y-%m-%d %H:%M:%S')" > SYNC_TIMESTAMP
+          git add SYNC_TIMESTAMP
+
+          # 🔒 Nếu không có thay đổi gì -> dừng workflow, không tạo PR
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "✅ No changes to commit. Skipping push & PR."
+            exit 0
+          fi
+
+          git commit -m "chore: update SYNC_TIMESTAMP to force PR"
+          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
+          git push origin "$BRANCH" || { echo "❌ Push failed"; exit 1; }
+
           echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
 
-      - name: Check branch existence
+      - name: 🔍 Check if sync branch exists on GitHub
         run: |
-          gh api repos/${{ github.repository }}/branches/${{ env.BRANCH_NAME }} || { echo "Branch not found on remote"; exit 1; }
+          gh api repos/${{ github.repository }}/branches/${{ env.BRANCH_NAME }} \
+          || { echo "❌ Branch not found on remote"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-      - name: Wait for branch to be available
-        run: sleep 10  # Chờ 10 giây để đảm bảo nhánh được GitHub nhận diện
+      - name: ⏱️ Wait for GitHub to register new branch
+        run: sleep 10
 
-      - name: Create Pull Request
+      - name: 🚀 Create Pull Request to main
         run: |
           gh pr create \
             --repo ${{ github.repository }} \
